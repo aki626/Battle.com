@@ -40,7 +40,7 @@ const player = {
   angle: 0,
   speed: 2,
   size: 30,
-  hp: 25
+  hp: 50   // ← HPを50に増やした
 };
 
 // ===============================
@@ -55,6 +55,7 @@ const enemies = [];
 
 function spawnEnemies() {
   enemies.length = 0;
+
   const enemyCount = 5 + (wave - 1) * 2; // ウェーブごとに敵増加
 
   for (let i = 0; i < enemyCount; i++) {
@@ -131,7 +132,7 @@ function update() {
       e.y -= Math.cos(e.angle) * e.speed;
     }
 
-    // 敵の砲撃（攻撃速度は遅め）
+    // 敵の砲撃（攻撃速度をさらに遅く）
     if (dist < 400) {
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -140,7 +141,7 @@ function update() {
           angle: e.angle,
           speed: 4
         });
-        e.shootCooldown = 120; // 約2秒
+        e.shootCooldown = 180; // ← 120 → 180（攻撃速度さらに遅く）
       }
     }
 
@@ -172,7 +173,7 @@ function update() {
 
         // 敵撃破 → HP回復
         if (e.hp <= 1) {
-          player.hp += 1;
+          player.hp += 1;  // ← 敵撃破でHP+1
         }
       }
     });
