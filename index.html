@@ -10,6 +10,7 @@
     height: 100vh;
     background: linear-gradient(#1a3d6b, #0a1a33);
     display: block;
+    touch-action: none; /* スマホでのスクロール防止 */
   }
 </style>
 </head>
@@ -37,6 +38,47 @@ document.addEventListener("keyup", e => keys[e.key] = false);
 let mouseDown = false;
 document.addEventListener("mousedown", () => mouseDown = true);
 document.addEventListener("mouseup", () => mouseDown = false);
+
+// ===============================
+// スマホタッチ判定
+// ===============================
+let touchShooting = false;
+let touchX = 0;
+let touchY = 0;
+
+canvas.addEventListener("touchstart", e => {
+  const t = e.touches[0];
+  touchX = t.clientX;
+  touchY = t.clientY;
+
+  if (touchX > canvas.width / 2) {
+    // 右側 → 射撃
+    touchShooting = true;
+  }
+});
+
+canvas.addEventListener("touchend", () => {
+  touchShooting = false;
+});
+
+canvas.addEventListener("touchmove", e => {
+  const t = e.touches[0];
+  const dx = t.clientX - touchX;
+  const dy = t.clientY - touchY;
+
+  // 左側 → 操作
+  if (touchX < canvas.width / 2) {
+    // 回転
+    player.angle += dx * 0.005;
+
+    // 前進・後退
+    player.x -= Math.sin(player.angle) * dy * 0.03;
+    player.y += Math.cos(player.angle) * dy * 0.03;
+  }
+
+  touchX = t.clientX;
+  touchY = t.clientY;
+});
 
 // ===============================
 // プレイヤー船
@@ -166,7 +208,7 @@ function giveRandomAbility() {
 function update() {
   if (player.hp <= 0) return;
 
-  // プレイヤー移動
+  // PC操作
   if (keys["w"]) {
     player.x += Math.sin(player.angle) * player.speed;
     player.y -= Math.cos(player.angle) * player.speed;
@@ -178,8 +220,8 @@ function update() {
   if (keys["a"]) player.angle -= 0.05;
   if (keys["d"]) player.angle += 0.05;
 
-  // 長押し連射
-  if (mouseDown && player.shootCooldown <= 0) {
+  // 長押し連射（PC + スマホ）
+  if ((mouseDown || touchShooting) && player.shootCooldown <= 0) {
     shoot();
     player.shootCooldown = player.shootCooldownBase;
   }
@@ -252,7 +294,6 @@ function update() {
             x: e.x,
             y: e.y,
             radius: 5,
-            maxRadius: 40,
             alpha: 1
           });
         }
