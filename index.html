@@ -40,8 +40,13 @@ const player = {
   angle: 0,
   speed: 2,
   size: 30,
-  hp: 25   // ← HP を 25 に変更
+  hp: 25
 };
+
+// ===============================
+// ウェーブシステム
+// ===============================
+let wave = 1;
 
 // ===============================
 // 敵艦
@@ -50,14 +55,16 @@ const enemies = [];
 
 function spawnEnemies() {
   enemies.length = 0;
-  for (let i = 0; i < 5; i++) {
+  const enemyCount = 5 + (wave - 1) * 2; // ウェーブごとに敵増加
+
+  for (let i = 0; i < enemyCount; i++) {
     enemies.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height / 2,
       angle: Math.random() * Math.PI * 2,
       speed: 1.2,
       size: 25,
-      hp: 3,
+      hp: 3 + wave, // ウェーブごとに敵のHPも増える
       shootCooldown: 0
     });
   }
@@ -124,7 +131,7 @@ function update() {
       e.y -= Math.cos(e.angle) * e.speed;
     }
 
-    // 敵の砲撃（攻撃速度を遅くした）
+    // 敵の砲撃（攻撃速度は遅め）
     if (dist < 400) {
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -133,7 +140,7 @@ function update() {
           angle: e.angle,
           speed: 4
         });
-        e.shootCooldown = 120; // ← 60 → 120 に変更（攻撃速度を遅く）
+        e.shootCooldown = 120; // 約2秒
       }
     }
 
@@ -162,6 +169,11 @@ function update() {
       if (dist < e.size) {
         e.hp--;
         b.x = -9999;
+
+        // 敵撃破 → HP回復
+        if (e.hp <= 1) {
+          player.hp += 1;
+        }
       }
     });
   });
@@ -177,6 +189,7 @@ function checkRespawn() {
 
   if (enemies.length === 0 && respawnTimer === 0) {
     respawnTimer = Date.now() + 5000;
+    wave++; // ウェーブ進行
   }
 
   if (respawnTimer !== 0 && Date.now() > respawnTimer) {
@@ -252,11 +265,17 @@ function draw() {
   ctx.font = "24px Arial";
   ctx.fillText("HP: " + player.hp, 20, 40);
 
+  // Wave表示
+  ctx.fillText("Wave: " + wave, 20, 70);
+
   // ゲームオーバー
   if (player.hp <= 0) {
     ctx.fillStyle = "#f00";
     ctx.font = "60px Arial";
     ctx.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
+
+    ctx.font = "40px Arial";
+    ctx.fillText("Wave " + wave + " まで生き残った", canvas.width / 2 - 200, canvas.height / 2 + 60);
   }
 }
 
