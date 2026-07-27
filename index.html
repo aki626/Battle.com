@@ -40,7 +40,7 @@ const player = {
   angle: 0,
   speed: 2,
   size: 30,
-  hp: 10
+  hp: 25   // ← HP を 25 に変更
 };
 
 // ===============================
@@ -124,7 +124,7 @@ function update() {
       e.y -= Math.cos(e.angle) * e.speed;
     }
 
-    // 敵の砲撃
+    // 敵の砲撃（攻撃速度を遅くした）
     if (dist < 400) {
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -133,7 +133,7 @@ function update() {
           angle: e.angle,
           speed: 4
         });
-        e.shootCooldown = 60; // 約1秒
+        e.shootCooldown = 120; // ← 60 → 120 に変更（攻撃速度を遅く）
       }
     }
 
