@@ -10,7 +10,7 @@
     height: 100vh;
     background: linear-gradient(#1a3d6b, #0a1a33);
     display: block;
-    touch-action: none; /* スマホでのスクロール防止 */
+    touch-action: none;
   }
 </style>
 </head>
@@ -28,6 +28,9 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// ===============================
+// キー操作
+// ===============================
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
@@ -52,7 +55,6 @@ canvas.addEventListener("touchstart", e => {
   touchY = t.clientY;
 
   if (touchX > canvas.width / 2) {
-    // 右側 → 射撃
     touchShooting = true;
   }
 });
@@ -66,12 +68,8 @@ canvas.addEventListener("touchmove", e => {
   const dx = t.clientX - touchX;
   const dy = t.clientY - touchY;
 
-  // 左側 → 操作
   if (touchX < canvas.width / 2) {
-    // 回転
     player.angle += dx * 0.005;
-
-    // 前進・後退
     player.x -= Math.sin(player.angle) * dy * 0.03;
     player.y += Math.cos(player.angle) * dy * 0.03;
   }
@@ -112,6 +110,13 @@ let abilityTimer = 0;
 // 爆発エフェクト
 // ===============================
 const explosions = [];
+
+// ===============================
+// ミサイル能力
+// ===============================
+let missileUnlocked = false;
+let missileCooldown = 0;
+const missiles = [];
 
 // ===============================
 // 敵艦
@@ -160,6 +165,32 @@ function shoot() {
 }
 
 // ===============================
+// ミサイル発射
+// ===============================
+function launchMissile() {
+  if (enemies.length === 0) return;
+
+  // 最も近い敵をターゲットにする
+  let target = enemies[0];
+  let minDist = Infinity;
+
+  enemies.forEach(e => {
+    const d = Math.hypot(e.x - player.x, e.y - player.y);
+    if (d < minDist) {
+      minDist = d;
+      target = e;
+    }
+  });
+
+  missiles.push({
+    x: player.x,
+    y: player.y,
+    target: target,
+    speed: 5
+  });
+}
+
+// ===============================
 // ランダム能力付与
 // ===============================
 let enemyShootCooldownBase = 180;
@@ -170,7 +201,8 @@ function giveRandomAbility() {
     "移動速度アップ",
     "最大HPアップ",
     "回復量アップ",
-    "砲弾速度アップ"
+    "砲弾速度アップ",
+    "ミサイル"
   ];
 
   const choice = abilities[Math.floor(Math.random() * abilities.length)];
@@ -199,6 +231,10 @@ function giveRandomAbility() {
     case "砲弾速度アップ":
       player.bulletSpeed += 1;
       break;
+
+    case "ミサイル":
+      missileUnlocked = true;
+      break;
   }
 }
 
@@ -208,7 +244,7 @@ function giveRandomAbility() {
 function update() {
   if (player.hp <= 0) return;
 
-  // PC操作
+  // PC移動
   if (keys["w"]) {
     player.x += Math.sin(player.angle) * player.speed;
     player.y -= Math.cos(player.angle) * player.speed;
@@ -226,6 +262,41 @@ function update() {
     player.shootCooldown = player.shootCooldownBase;
   }
   player.shootCooldown--;
+
+  // ミサイル自動発射
+  if (missileUnlocked && missileCooldown <= 0) {
+    launchMissile();
+    missileCooldown = 180; // 3秒
+  }
+  missileCooldown--;
+
+  // ミサイル更新
+  missiles.forEach(m => {
+    if (!m.target) return;
+
+    const dx = m.target.x - m.x;
+    const dy = m.target.y - m.y;
+    const angle = Math.atan2(dx, -dy);
+
+    m.x += Math.sin(angle) * m.speed;
+    m.y -= Math.cos(angle) * m.speed;
+
+    const dist = Math.hypot(m.x - m.target.x, m.y - m.target.y);
+    if (dist < m.target.size) {
+      // 即死
+      m.target.hp = 0;
+
+      // 爆発
+      explosions.push({
+        x: m.target.x,
+        y: m.target.y,
+        radius: 5,
+        alpha: 1
+      });
+
+      m.x = -9999;
+    }
+  });
 
   // プレイヤー砲弾更新
   bullets.forEach(b => {
@@ -246,7 +317,6 @@ function update() {
       e.y -= Math.cos(e.angle) * e.speed;
     }
 
-    // 敵の砲撃
     if (dist < 400) {
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -285,11 +355,9 @@ function update() {
         e.hp--;
         b.x = -9999;
 
-        // 敵撃破 → HP回復
         if (e.hp <= 1) {
           player.hp = Math.min(player.maxHp, player.hp + player.healBonus);
 
-          // 爆発エフェクト追加
           explosions.push({
             x: e.x,
             y: e.y,
@@ -312,7 +380,6 @@ function update() {
     ex.alpha -= 0.05;
   });
 
-  // 消えた爆発を削除
   for (let i = explosions.length - 1; i >= 0; i--) {
     if (explosions[i].alpha <= 0) explosions.splice(i, 1);
   }
@@ -340,7 +407,6 @@ function checkRespawn() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 海
   ctx.fillStyle = "#0a1a33";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -396,7 +462,15 @@ function draw() {
     ctx.fill();
   });
 
-  // 爆発エフェクト描画
+  // ミサイル描画
+  ctx.fillStyle = "#0f0";
+  missiles.forEach(m => {
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 爆発描画
   explosions.forEach(ex => {
     ctx.beginPath();
     ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
@@ -404,22 +478,18 @@ function draw() {
     ctx.fill();
   });
 
-  // HP表示
+  // UI
   ctx.fillStyle = "#fff";
   ctx.font = "24px Arial";
   ctx.fillText("HP: " + player.hp + " / " + player.maxHp, 20, 40);
-
-  // Wave表示
   ctx.fillText("Wave: " + wave, 20, 70);
 
-  // 能力表示
   if (abilityTimer > Date.now()) {
     ctx.fillStyle = "#0f0";
     ctx.font = "32px Arial";
     ctx.fillText(abilityText, canvas.width / 2 - 150, 80);
   }
 
-  // ゲームオーバー
   if (player.hp <= 0) {
     ctx.fillStyle = "#f00";
     ctx.font = "60px Arial";
