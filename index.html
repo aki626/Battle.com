@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sea Battle HTML</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #003; }
+  #gameCanvas {
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(#1a3d6b, #0a1a33);
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+// ===============================
+// 基本設定
+// ===============================
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// ===============================
+// プレイヤー船
+// ===============================
+const player = {
+  x: canvas.width / 2,
+  y: canvas.height / 2 + 150,
+  angle: 0,
+  speed: 2,
+  size: 30
+};
+
+// ===============================
+// 敵艦
+// ===============================
+const enemies = [];
+for (let i = 0; i < 5; i++) {
+  enemies.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height / 2,
+    angle: Math.random() * Math.PI * 2,
+    speed: 1.2,
+    size: 25,
+    hp: 3
+  });
+}
+
+// ===============================
+// 砲弾
+// ===============================
+const bullets = [];
+
+function shoot() {
+  bullets.push({
+    x: player.x,
+    y: player.y,
+    angle: player.angle,
+    speed: 6
+  });
+}
+
+document.addEventListener("click", shoot);
+
+// ===============================
+// ゲームループ
+// ===============================
+function update() {
+  // プレイヤー操作
+  if (keys["w"]) {
+    player.x += Math.sin(player.angle) * player.speed;
+    player.y -= Math.cos(player.angle) * player.speed;
+  }
+  if (keys["s"]) {
+    player.x -= Math.sin(player.angle) * player.speed;
+    player.y += Math.cos(player.angle) * player.speed;
+  }
+  if (keys["a"]) player.angle -= 0.05;
+  if (keys["d"]) player.angle += 0.05;
+
+  // 砲弾更新
+  bullets.forEach(b => {
+    b.x += Math.sin(b.angle) * b.speed;
+    b.y -= Math.cos(b.angle) * b.speed;
+  });
+
+  // 敵AI
+  enemies.forEach(e => {
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    // プレイヤー方向へ旋回
+    e.angle = Math.atan2(dx, -dy);
+
+    // 距離を保ちながら接近
+    if (dist > 200) {
+      e.x += Math.sin(e.angle) * e.speed;
+      e.y -= Math.cos(e.angle) * e.speed;
+    }
+  });
+
+  // 当たり判定
+  bullets.forEach(b => {
+    enemies.forEach(e => {
+      const dist = Math.hypot(b.x - e.x, b.y - e.y);
+      if (dist < e.size) {
+        e.hp--;
+        b.x = -9999; // 消す
+      }
+    });
+  });
+
+  // HP0の敵を削除
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    if (enemies[i].hp <= 0) enemies.splice(i, 1);
+  }
+}
+
+// ===============================
+// 描画
+// ===============================
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 海
+  ctx.fillStyle = "#0a1a33";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // プレイヤー船
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.angle);
+  ctx.fillStyle = "#4af";
+  ctx.fillRect(-player.size/2, -player.size, player.size, player.size*2);
+  ctx.restore();
+
+  // 敵艦
+  enemies.forEach(e => {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    ctx.fillStyle = "#f44";
+    ctx.fillRect(-e.size/2, -e.size, e.size, e.size*2);
+    ctx.restore();
+  });
+
+  // 砲弾
+  ctx.fillStyle = "#ff0";
+  bullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ===============================
+// メインループ
+// ===============================
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
