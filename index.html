@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Sea Battle HTML</title>
+<title>Sea Battle Mobile UI</title>
 <style>
   body { margin: 0; overflow: hidden; background: #003; }
   #gameCanvas {
@@ -12,11 +12,51 @@
     display: block;
     touch-action: none;
   }
+
+  /* スマホ専用UI */
+  @media (max-width: 900px) {
+    #joystick {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 140px;
+      height: 140px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      border: 2px solid #fff;
+      touch-action: none;
+    }
+    #joystick-inner {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 50%;
+      left: 40px;
+      top: 40px;
+    }
+
+    #fireBtn {
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      width: 120px;
+      height: 120px;
+      background: rgba(255,0,0,0.4);
+      border-radius: 50%;
+      border: 2px solid #fff;
+      touch-action: none;
+    }
+  }
 </style>
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
+
+<!-- スマホ専用UI -->
+<div id="joystick"><div id="joystick-inner"></div></div>
+<div id="fireBtn"></div>
 
 <script>
 // ===============================
@@ -24,62 +64,81 @@
 // ===============================
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// ===============================
-// キー操作
-// ===============================
+// PCキー操作
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// ===============================
-// マウス長押し判定
-// ===============================
+// PCマウス射撃
 let mouseDown = false;
 document.addEventListener("mousedown", () => mouseDown = true);
 document.addEventListener("mouseup", () => mouseDown = false);
 
 // ===============================
-// スマホタッチ判定
+// スマホUI（ジョイスティック）
 // ===============================
-let touchShooting = false;
-let touchX = 0;
-let touchY = 0;
+const joy = document.getElementById("joystick");
+const joyInner = document.getElementById("joystick-inner");
+let joyActive = false;
+let joyX = 0, joyY = 0;
 
-canvas.addEventListener("touchstart", e => {
+joy.addEventListener("touchstart", e => {
+  joyActive = true;
   const t = e.touches[0];
-  touchX = t.clientX;
-  touchY = t.clientY;
-
-  if (touchX > canvas.width / 2) {
-    touchShooting = true;
-  }
+  joyX = t.clientX;
+  joyY = t.clientY;
 });
 
-canvas.addEventListener("touchend", () => {
+joy.addEventListener("touchend", () => {
+  joyActive = false;
+  joyInner.style.left = "40px";
+  joyInner.style.top = "40px";
+});
+
+joy.addEventListener("touchmove", e => {
+  const t = e.touches[0];
+  const rect = joy.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  let dx = t.clientX - cx;
+  let dy = t.clientY - cy;
+
+  const dist = Math.hypot(dx, dy);
+  const maxDist = 50;
+
+  if (dist > maxDist) {
+    dx = dx / dist * maxDist;
+    dy = dy / dist * maxDist;
+  }
+
+  joyInner.style.left = (40 + dx) + "px";
+  joyInner.style.top = (40 + dy) + "px";
+
+  // プレイヤー操作
+  player.angle += dx * 0.01;
+  player.x -= Math.sin(player.angle) * dy * 0.05;
+  player.y += Math.cos(player.angle) * dy * 0.05;
+});
+
+// ===============================
+// スマホUI（発砲ボタン）
+// ===============================
+let touchShooting = false;
+const fireBtn = document.getElementById("fireBtn");
+
+fireBtn.addEventListener("touchstart", () => {
+  touchShooting = true;
+});
+fireBtn.addEventListener("touchend", () => {
   touchShooting = false;
 });
 
-canvas.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  const dx = t.clientX - touchX;
-  const dy = t.clientY - touchY;
-
-  if (touchX < canvas.width / 2) {
-    player.angle += dx * 0.005;
-    player.x -= Math.sin(player.angle) * dy * 0.03;
-    player.y += Math.cos(player.angle) * dy * 0.03;
-  }
-
-  touchX = t.clientX;
-  touchY = t.clientY;
-});
-
 // ===============================
-// プレイヤー船
+// プレイヤー
 // ===============================
 const player = {
   x: canvas.width / 2,
@@ -96,39 +155,38 @@ const player = {
 };
 
 // ===============================
-// ウェーブシステム
+// ウェーブ
 // ===============================
 let wave = 1;
 
 // ===============================
-// ランダム能力表示
+// 能力表示
 // ===============================
 let abilityText = "";
 let abilityTimer = 0;
 
 // ===============================
-// 爆発エフェクト
+// 爆発
 // ===============================
 const explosions = [];
 
 // ===============================
-// ミサイル能力
+// ミサイル
 // ===============================
 let missileUnlocked = false;
 let missileCooldown = 0;
 const missiles = [];
 
 // ===============================
-// 敵艦
+// 敵
 // ===============================
 const enemies = [];
 
 function spawnEnemies() {
   enemies.length = 0;
+  const count = 5 + (wave - 1) * 2;
 
-  const enemyCount = 5 + (wave - 1) * 2;
-
-  for (let i = 0; i < enemyCount; i++) {
+  for (let i = 0; i < count; i++) {
     enemies.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height / 2,
@@ -146,15 +204,11 @@ spawnEnemies();
 let respawnTimer = 0;
 
 // ===============================
-// 砲弾（プレイヤー）
+// 砲弾
+// ===============================
 const bullets = [];
-
-// 砲弾（敵）
 const enemyBullets = [];
 
-// ===============================
-// プレイヤー射撃
-// ===============================
 function shoot() {
   bullets.push({
     x: player.x,
@@ -165,12 +219,11 @@ function shoot() {
 }
 
 // ===============================
-// ミサイル発射
+// ミサイル
 // ===============================
 function launchMissile() {
   if (enemies.length === 0) return;
 
-  // 最も近い敵をターゲットにする
   let target = enemies[0];
   let minDist = Infinity;
 
@@ -191,7 +244,7 @@ function launchMissile() {
 }
 
 // ===============================
-// ランダム能力付与
+// 能力
 // ===============================
 let enemyShootCooldownBase = 180;
 
@@ -239,7 +292,7 @@ function giveRandomAbility() {
 }
 
 // ===============================
-// ゲームループ
+// update
 // ===============================
 function update() {
   if (player.hp <= 0) return;
@@ -256,7 +309,7 @@ function update() {
   if (keys["a"]) player.angle -= 0.05;
   if (keys["d"]) player.angle += 0.05;
 
-  // 長押し連射（PC + スマホ）
+  // 射撃（PC + スマホ）
   if ((mouseDown || touchShooting) && player.shootCooldown <= 0) {
     shoot();
     player.shootCooldown = player.shootCooldownBase;
@@ -266,7 +319,7 @@ function update() {
   // ミサイル自動発射
   if (missileUnlocked && missileCooldown <= 0) {
     launchMissile();
-    missileCooldown = 180; // 3秒
+    missileCooldown = 180;
   }
   missileCooldown--;
 
@@ -283,10 +336,8 @@ function update() {
 
     const dist = Math.hypot(m.x - m.target.x, m.y - m.target.y);
     if (dist < m.target.size) {
-      // 即死
       m.target.hp = 0;
 
-      // 爆発
       explosions.push({
         x: m.target.x,
         y: m.target.y,
@@ -298,7 +349,7 @@ function update() {
     }
   });
 
-  // プレイヤー砲弾更新
+  // プレイヤー砲弾
   bullets.forEach(b => {
     b.x += Math.sin(b.angle) * b.speed;
     b.y -= Math.cos(b.angle) * b.speed;
@@ -332,13 +383,13 @@ function update() {
     e.shootCooldown--;
   });
 
-  // 敵砲弾更新
+  // 敵砲弾
   enemyBullets.forEach(b => {
     b.x += Math.sin(b.angle) * b.speed;
     b.y -= Math.cos(b.angle) * b.speed;
   });
 
-  // プレイヤーが敵砲弾を受ける
+  // 敵砲弾命中
   enemyBullets.forEach(b => {
     const dist = Math.hypot(b.x - player.x, b.y - player.y);
     if (dist < player.size) {
@@ -347,7 +398,7 @@ function update() {
     }
   });
 
-  // プレイヤー砲弾 → 敵に命中
+  // プレイヤー砲弾命中
   bullets.forEach(b => {
     enemies.forEach(e => {
       const dist = Math.hypot(b.x - e.x, b.y - e.y);
@@ -369,7 +420,7 @@ function update() {
     });
   });
 
-  // HP0の敵を削除
+  // 敵削除
   for (let i = enemies.length - 1; i >= 0; i--) {
     if (enemies[i].hp <= 0) enemies.splice(i, 1);
   }
@@ -385,13 +436,15 @@ function update() {
   }
 }
 
+// ===============================
+// respawn
+// ===============================
 function checkRespawn() {
   if (player.hp <= 0) return;
 
   if (enemies.length === 0 && respawnTimer === 0) {
     respawnTimer = Date.now() + 5000;
     wave++;
-
     giveRandomAbility();
   }
 
@@ -402,7 +455,7 @@ function checkRespawn() {
 }
 
 // ===============================
-// 描画
+// draw
 // ===============================
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -410,7 +463,7 @@ function draw() {
   ctx.fillStyle = "#0a1a33";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // プレイヤー船
+  // プレイヤー
   ctx.save();
   ctx.translate(player.x, player.y);
   ctx.rotate(player.angle);
@@ -427,7 +480,7 @@ function draw() {
 
   ctx.restore();
 
-  // 敵艦
+  // 敵
   enemies.forEach(e => {
     ctx.save();
     ctx.translate(e.x, e.y);
@@ -446,7 +499,7 @@ function draw() {
     ctx.restore();
   });
 
-  // プレイヤー砲弾
+  // 砲弾
   ctx.fillStyle = "#ff0";
   bullets.forEach(b => {
     ctx.beginPath();
@@ -462,7 +515,7 @@ function draw() {
     ctx.fill();
   });
 
-  // ミサイル描画
+  // ミサイル
   ctx.fillStyle = "#0f0";
   missiles.forEach(m => {
     ctx.beginPath();
@@ -470,7 +523,7 @@ function draw() {
     ctx.fill();
   });
 
-  // 爆発描画
+  // 爆発
   explosions.forEach(ex => {
     ctx.beginPath();
     ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
@@ -501,7 +554,7 @@ function draw() {
 }
 
 // ===============================
-// メインループ
+// main loop
 // ===============================
 function loop() {
   update();
