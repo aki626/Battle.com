@@ -40,13 +40,22 @@ const player = {
   angle: 0,
   speed: 2,
   size: 30,
-  hp: 50   // ← HPを50に増やした
+  hp: 50,
+  maxHp: 50,
+  healBonus: 1,     // 敵撃破時の回復量
+  bulletSpeed: 6    // プレイヤー砲弾速度
 };
 
 // ===============================
 // ウェーブシステム
 // ===============================
 let wave = 1;
+
+// ===============================
+// ランダム能力表示
+// ===============================
+let abilityText = "";
+let abilityTimer = 0;
 
 // ===============================
 // 敵艦
@@ -56,7 +65,7 @@ const enemies = [];
 function spawnEnemies() {
   enemies.length = 0;
 
-  const enemyCount = 5 + (wave - 1) * 2; // ウェーブごとに敵増加
+  const enemyCount = 5 + (wave - 1) * 2;
 
   for (let i = 0; i < enemyCount; i++) {
     enemies.push({
@@ -65,7 +74,7 @@ function spawnEnemies() {
       angle: Math.random() * Math.PI * 2,
       speed: 1.2,
       size: 25,
-      hp: 3 + wave, // ウェーブごとに敵のHPも増える
+      hp: 3 + wave,
       shootCooldown: 0
     });
   }
@@ -87,11 +96,54 @@ function shoot() {
     x: player.x,
     y: player.y,
     angle: player.angle,
-    speed: 6
+    speed: player.bulletSpeed
   });
 }
 
 document.addEventListener("click", shoot);
+
+// ===============================
+// ランダム能力付与
+// ===============================
+function giveRandomAbility() {
+  const abilities = [
+    "攻撃速度アップ",
+    "移動速度アップ",
+    "最大HPアップ",
+    "回復量アップ",
+    "砲弾速度アップ"
+  ];
+
+  const choice = abilities[Math.floor(Math.random() * abilities.length)];
+  abilityText = "能力獲得: " + choice;
+  abilityTimer = Date.now() + 3000; // 3秒表示
+
+  switch (choice) {
+    case "攻撃速度アップ":
+      enemyShootCooldownBase = Math.max(60, enemyShootCooldownBase - 20);
+      break;
+
+    case "移動速度アップ":
+      player.speed += 0.5;
+      break;
+
+    case "最大HPアップ":
+      player.maxHp += 10;
+      player.hp += 10;
+      break;
+
+    case "回復量アップ":
+      player.healBonus += 1;
+      break;
+
+    case "砲弾速度アップ":
+      player.bulletSpeed += 1;
+      break;
+  }
+}
+
+// 敵の攻撃速度（基準値）
+let enemyShootCooldownBase = 180;
 
 // ===============================
 // ゲームループ
@@ -123,16 +175,14 @@ function update() {
     const dy = player.y - e.y;
     const dist = Math.hypot(dx, dy);
 
-    // プレイヤー方向へ旋回
     e.angle = Math.atan2(dx, -dy);
 
-    // 距離を保ちながら接近
     if (dist > 200) {
       e.x += Math.sin(e.angle) * e.speed;
       e.y -= Math.cos(e.angle) * e.speed;
     }
 
-    // 敵の砲撃（攻撃速度をさらに遅く）
+    // 敵の砲撃
     if (dist < 400) {
       if (e.shootCooldown <= 0) {
         enemyBullets.push({
@@ -141,7 +191,7 @@ function update() {
           angle: e.angle,
           speed: 4
         });
-        e.shootCooldown = 180; // ← 120 → 180（攻撃速度さらに遅く）
+        e.shootCooldown = enemyShootCooldownBase;
       }
     }
 
@@ -173,7 +223,7 @@ function update() {
 
         // 敵撃破 → HP回復
         if (e.hp <= 1) {
-          player.hp += 1;  // ← 敵撃破でHP+1
+          player.hp = Math.min(player.maxHp, player.hp + player.healBonus);
         }
       }
     });
@@ -190,7 +240,10 @@ function checkRespawn() {
 
   if (enemies.length === 0 && respawnTimer === 0) {
     respawnTimer = Date.now() + 5000;
-    wave++; // ウェーブ進行
+    wave++;
+
+    // ランダム能力付与
+    giveRandomAbility();
   }
 
   if (respawnTimer !== 0 && Date.now() > respawnTimer) {
@@ -264,10 +317,17 @@ function draw() {
   // HP表示
   ctx.fillStyle = "#fff";
   ctx.font = "24px Arial";
-  ctx.fillText("HP: " + player.hp, 20, 40);
+  ctx.fillText("HP: " + player.hp + " / " + player.maxHp, 20, 40);
 
   // Wave表示
   ctx.fillText("Wave: " + wave, 20, 70);
+
+  // 能力表示（3秒だけ）
+  if (abilityTimer > Date.now()) {
+    ctx.fillStyle = "#0f0";
+    ctx.font = "32px Arial";
+    ctx.fillText(abilityText, canvas.width / 2 - 150, 80);
+  }
 
   // ゲームオーバー
   if (player.hp <= 0) {
