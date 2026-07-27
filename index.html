@@ -32,6 +32,13 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 // ===============================
+// マウス長押し判定
+// ===============================
+let mouseDown = false;
+document.addEventListener("mousedown", () => mouseDown = true);
+document.addEventListener("mouseup", () => mouseDown = false);
+
+// ===============================
 // プレイヤー船
 // ===============================
 const player = {
@@ -42,8 +49,10 @@ const player = {
   size: 30,
   hp: 50,
   maxHp: 50,
-  healBonus: 1,     // 敵撃破時の回復量
-  bulletSpeed: 6    // プレイヤー砲弾速度
+  healBonus: 1,
+  bulletSpeed: 6,
+  shootCooldown: 0,
+  shootCooldownBase: 20
 };
 
 // ===============================
@@ -56,6 +65,11 @@ let wave = 1;
 // ===============================
 let abilityText = "";
 let abilityTimer = 0;
+
+// ===============================
+// 爆発エフェクト
+// ===============================
+const explosions = [];
 
 // ===============================
 // 敵艦
@@ -91,6 +105,9 @@ const bullets = [];
 // 砲弾（敵）
 const enemyBullets = [];
 
+// ===============================
+// プレイヤー射撃
+// ===============================
 function shoot() {
   bullets.push({
     x: player.x,
@@ -100,11 +117,11 @@ function shoot() {
   });
 }
 
-document.addEventListener("click", shoot);
-
 // ===============================
 // ランダム能力付与
 // ===============================
+let enemyShootCooldownBase = 180;
+
 function giveRandomAbility() {
   const abilities = [
     "攻撃速度アップ",
@@ -116,11 +133,12 @@ function giveRandomAbility() {
 
   const choice = abilities[Math.floor(Math.random() * abilities.length)];
   abilityText = "能力獲得: " + choice;
-  abilityTimer = Date.now() + 3000; // 3秒表示
+  abilityTimer = Date.now() + 3000;
 
   switch (choice) {
     case "攻撃速度アップ":
       enemyShootCooldownBase = Math.max(60, enemyShootCooldownBase - 20);
+      player.shootCooldownBase = Math.max(5, player.shootCooldownBase - 3);
       break;
 
     case "移動速度アップ":
@@ -142,16 +160,13 @@ function giveRandomAbility() {
   }
 }
 
-// 敵の攻撃速度（基準値）
-let enemyShootCooldownBase = 180;
-
 // ===============================
 // ゲームループ
 // ===============================
 function update() {
   if (player.hp <= 0) return;
 
-  // プレイヤー操作
+  // プレイヤー移動
   if (keys["w"]) {
     player.x += Math.sin(player.angle) * player.speed;
     player.y -= Math.cos(player.angle) * player.speed;
@@ -162,6 +177,13 @@ function update() {
   }
   if (keys["a"]) player.angle -= 0.05;
   if (keys["d"]) player.angle += 0.05;
+
+  // 長押し連射
+  if (mouseDown && player.shootCooldown <= 0) {
+    shoot();
+    player.shootCooldown = player.shootCooldownBase;
+  }
+  player.shootCooldown--;
 
   // プレイヤー砲弾更新
   bullets.forEach(b => {
@@ -224,6 +246,15 @@ function update() {
         // 敵撃破 → HP回復
         if (e.hp <= 1) {
           player.hp = Math.min(player.maxHp, player.hp + player.healBonus);
+
+          // 爆発エフェクト追加
+          explosions.push({
+            x: e.x,
+            y: e.y,
+            radius: 5,
+            maxRadius: 40,
+            alpha: 1
+          });
         }
       }
     });
@@ -232,6 +263,17 @@ function update() {
   // HP0の敵を削除
   for (let i = enemies.length - 1; i >= 0; i--) {
     if (enemies[i].hp <= 0) enemies.splice(i, 1);
+  }
+
+  // 爆発更新
+  explosions.forEach(ex => {
+    ex.radius += 2;
+    ex.alpha -= 0.05;
+  });
+
+  // 消えた爆発を削除
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    if (explosions[i].alpha <= 0) explosions.splice(i, 1);
   }
 }
 
@@ -242,7 +284,6 @@ function checkRespawn() {
     respawnTimer = Date.now() + 5000;
     wave++;
 
-    // ランダム能力付与
     giveRandomAbility();
   }
 
@@ -314,6 +355,14 @@ function draw() {
     ctx.fill();
   });
 
+  // 爆発エフェクト描画
+  explosions.forEach(ex => {
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,150,0,${ex.alpha})`;
+    ctx.fill();
+  });
+
   // HP表示
   ctx.fillStyle = "#fff";
   ctx.font = "24px Arial";
@@ -322,7 +371,7 @@ function draw() {
   // Wave表示
   ctx.fillText("Wave: " + wave, 20, 70);
 
-  // 能力表示（3秒だけ）
+  // 能力表示
   if (abilityTimer > Date.now()) {
     ctx.fillStyle = "#0f0";
     ctx.font = "32px Arial";
