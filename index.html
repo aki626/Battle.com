@@ -102,7 +102,7 @@ let touchShoot = false;
 fireBtn.ontouchstart = ()=>{ if(mobileMode) touchShoot = true; };
 fireBtn.ontouchend   = ()=> touchShoot = false;
 
-/* ◎が動かない問題の完全修正版 */
+/* ★ 回転暴走バグ完全修正版ジョイスティック */
 joy.ontouchmove = e=>{
   if (document.getElementById("joystick").style.display !== "block") return;
 
@@ -130,11 +130,12 @@ joy.ontouchmove = e=>{
   joyInner.style.left = (40 + dx) + "px";
   joyInner.style.top  = (40 + dy) + "px";
 
-  /* 回転（弱くして暴れない） */
-  player.angle += dx * 0.005;
+  /* ★ 回転は割合で決める → 離したら必ず止まる */
+  const turn = dx / maxDist; // -1 ～ 1
+  player.angle += turn * 0.05;
 
-  /* 前進・後退（滑らかに） */
-  const forward = -dy / 50; // -1 ～ 1
+  /* ★ 前進・後退も割合で決める → 離したら止まる */
+  const forward = -dy / maxDist; // -1 ～ 1
   player.x += Math.sin(player.angle) * forward * player.speed;
   player.y -= Math.cos(player.angle) * forward * player.speed;
 };
@@ -261,7 +262,7 @@ function giveRandomAbility(){
 function update(){
   if(player.hp<=0) return;
 
-  /* PC移動 */
+  /* PC移動（回転暴走防止済み） */
   if(!mobileMode){
     if(keys["w"]){ player.x+=Math.sin(player.angle)*player.speed; player.y-=Math.cos(player.angle)*player.speed; }
     if(keys["s"]){ player.x-=Math.sin(player.angle)*player.speed; player.y+=Math.cos(player.angle)*player.speed; }
