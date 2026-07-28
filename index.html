@@ -184,7 +184,7 @@ joy.ontouchmove = e=>{
 joy.ontouchend = ()=>{
   joyInner.style.left="40px";
   joyInner.style.top="40px";
-  // 完全停止（角度・移動ともに0）
+  // 完全停止
 };
 
 /* ============================
@@ -412,6 +412,12 @@ function update(){
   for(let i=explosions.length-1;i>=0;i--){
     if(explosions[i].alpha<=0) explosions.splice(i,1);
   }
+
+  /* ★ 場外に出ないようにする（画面の端で止める） */
+  if (player.x < player.size) player.x = player.size;
+  if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+  if (player.y < player.size) player.y = player.size;
+  if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
 }
 
 /* ============================
