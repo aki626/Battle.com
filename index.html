@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Sea Battle</title>
+<title>Sea Battle Mobile UI</title>
 <style>
   body { margin: 0; overflow: hidden; background: #003; }
   #gameCanvas {
@@ -59,7 +59,7 @@
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
+<canvas id="gameCanvas" tabindex="0"></canvas>
 
 <!-- スマホ専用UI -->
 <div id="joystick"><div id="joystick-inner"></div></div>
@@ -73,16 +73,17 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+canvas.focus(); // ← WASDが確実に効くようにする
 
-// PCキー操作
+// PCキー操作（window に変更）
 let keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
 
 // PCマウス射撃
 let mouseDown = false;
-document.addEventListener("mousedown", () => mouseDown = true);
-document.addEventListener("mouseup", () => mouseDown = false);
+window.addEventListener("mousedown", () => mouseDown = true);
+window.addEventListener("mouseup", () => mouseDown = false);
 
 // ===============================
 // スマホUI（ジョイスティック）
@@ -591,13 +592,4 @@ function draw() {
 // ===============================
 function loop() {
   update();
-  checkRespawn();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-loop();
-</script>
-
-</body>
-</html>
+  checkResp
