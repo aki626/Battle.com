@@ -2,75 +2,46 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Sea Battle Mode Switch</title>
+<title>Sea Battle</title>
 <style>
-  body { margin: 0; overflow: hidden; background: #003; }
-  #gameCanvas {
-    width: 100vw;
-    height: 100vh;
-    background: linear-gradient(#1a3d6b, #0a1a33);
-    display: block;
-    touch-action: none;
-  }
+  body { margin:0; overflow:hidden; background:#003; }
+  #gameCanvas { width:100vw; height:100vh; display:block; background:#002; }
 
-  /* モード切り替えボタン */
+  /* モード切替ボタン */
   #modeSwitch {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 9999;
+    position:fixed; top:10px; right:10px; z-index:9999;
   }
   #modeSwitch button {
-    font-size: 20px;
-    padding: 10px 20px;
-    margin-left: 10px;
+    font-size:18px; padding:8px 16px; margin-left:6px;
   }
 
-  /* スマホUI（初期は非表示） */
-  #joystick, #fireBtn {
-    display: none;
-  }
+  /* スマホUI */
+  #joystick, #fireBtn { display:none; }
 
-  /* スマホUIデザイン */
   #joystick {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 140px;
-    height: 140px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 50%;
-    border: 2px solid #fff;
-    touch-action: none;
-    z-index: 9998;
+    position:fixed; bottom:20px; left:20px;
+    width:140px; height:140px;
+    background:rgba(255,255,255,0.1);
+    border-radius:50%; border:2px solid #fff;
+    z-index:9998; touch-action:none;
   }
   #joystick-inner {
-    position: absolute;
-    width: 60px;
-    height: 60px;
-    background: rgba(255,255,255,0.4);
-    border-radius: 50%;
-    left: 40px;
-    top: 40px;
+    position:absolute; width:60px; height:60px;
+    background:rgba(255,255,255,0.4);
+    border-radius:50%; left:40px; top:40px;
   }
 
   #fireBtn {
-    position: fixed;
-    bottom: 40px;
-    right: 40px;
-    width: 120px;
-    height: 120px;
-    background: rgba(255,0,0,0.4);
-    border-radius: 50%;
-    border: 2px solid #fff;
-    touch-action: none;
-    z-index: 9998;
+    position:fixed; bottom:40px; right:40px;
+    width:120px; height:120px;
+    background:rgba(255,0,0,0.4);
+    border-radius:50%; border:2px solid #fff;
+    z-index:9998; touch-action:none;
   }
 </style>
 </head>
 <body>
 
-<!-- モード切り替え -->
 <div id="modeSwitch">
   <button id="pcModeBtn">PCモード</button>
   <button id="mobileModeBtn">スマホモード</button>
@@ -78,528 +49,433 @@
 
 <canvas id="gameCanvas" tabindex="0"></canvas>
 
-<!-- スマホUI -->
 <div id="joystick"><div id="joystick-inner"></div></div>
 <div id="fireBtn"></div>
 
 <script>
-// ===============================
-// モード切り替え
-// ===============================
+/* ============================
+   モード切替
+============================ */
 let mobileMode = false;
-
-function updateUIMode() {
-  if (mobileMode) {
-    document.getElementById("joystick").style.display = "block";
-    document.getElementById("fireBtn").style.display = "block";
-  } else {
-    document.getElementById("joystick").style.display = "none";
-    document.getElementById("fireBtn").style.display = "none";
-  }
+function updateUIMode(){
+  const j = document.getElementById("joystick");
+  const f = document.getElementById("fireBtn");
+  if(mobileMode){ j.style.display="block"; f.style.display="block"; }
+  else{ j.style.display="none"; f.style.display="none"; }
 }
+pcModeBtn.onclick = ()=>{ mobileMode=false; updateUIMode(); };
+mobileModeBtn.onclick = ()=>{ mobileMode=true; updateUIMode(); };
 
-document.getElementById("pcModeBtn").addEventListener("click", () => {
-  mobileMode = false;
-  updateUIMode();
-});
-
-document.getElementById("mobileModeBtn").addEventListener("click", () => {
-  mobileMode = true;
-  updateUIMode();
-});
-
-// ===============================
-// 基本設定
-// ===============================
+/* ============================
+   基本設定
+============================ */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = innerWidth;
+canvas.height = innerHeight;
 canvas.focus();
 
-// PCキー操作
+/* キー入力 */
 let keys = {};
-window.addEventListener("keydown", e => keys[e.key] = true);
-window.addEventListener("keyup", e => keys[e.key] = false);
+window.onkeydown = e => keys[e.key] = true;
+window.onkeyup = e => keys[e.key] = false;
 
-// PCマウス射撃
+/* マウス射撃 */
 let mouseDown = false;
-window.addEventListener("mousedown", () => mouseDown = true);
-window.addEventListener("mouseup", () => mouseDown = false);
+window.onmousedown = ()=> mouseDown = true;
+window.onmouseup = ()=> mouseDown = false;
 
-// ===============================
-// スマホUI（ジョイスティック）
-// ===============================
+/* ============================
+   スマホUI
+============================ */
 const joy = document.getElementById("joystick");
 const joyInner = document.getElementById("joystick-inner");
-let joyX = 0, joyY = 0;
+let touchShoot = false;
 
-joy.addEventListener("touchstart", e => {
+fireBtn.ontouchstart = ()=>{ if(mobileMode) touchShoot = true; };
+fireBtn.ontouchend   = ()=> touchShoot = false;
+
+joy.ontouchstart = e=>{
   const t = e.touches[0];
-  joyX = t.clientX;
-  joyY = t.clientY;
-});
-
-joy.addEventListener("touchend", () => {
-  joyInner.style.left = "40px";
-  joyInner.style.top = "40px";
-});
-
-joy.addEventListener("touchmove", e => {
-  if (!mobileMode) return;
-
+  joyX = t.clientX; joyY = t.clientY;
+};
+joy.ontouchend = ()=>{
+  joyInner.style.left="40px";
+  joyInner.style.top="40px";
+};
+joy.ontouchmove = e=>{
+  if(!mobileMode) return;
   const t = e.touches[0];
-  const rect = joy.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
+  const r = joy.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top + r.height/2;
   let dx = t.clientX - cx;
   let dy = t.clientY - cy;
+  const dist = Math.hypot(dx,dy);
+  const max = 50;
+  if(dist>max){ dx = dx/dist*max; dy = dy/dist*max; }
+  joyInner.style.left = (40+dx)+"px";
+  joyInner.style.top  = (40+dy)+"px";
 
-  const dist = Math.hypot(dx, dy);
-  const maxDist = 50;
-
-  if (dist > maxDist) {
-    dx = dx / dist * maxDist;
-    dy = dy / dist * maxDist;
-  }
-
-  joyInner.style.left = (40 + dx) + "px";
-  joyInner.style.top = (40 + dy) + "px";
-
-  player.angle += dx * 0.01;
-  player.x -= Math.sin(player.angle) * dy * 0.05;
-  player.y += Math.cos(player.angle) * dy * 0.05;
-});
-
-// ===============================
-// スマホUI（発砲ボタン）
-// ===============================
-let touchShooting = false;
-const fireBtn = document.getElementById("fireBtn");
-
-fireBtn.addEventListener("touchstart", () => {
-  if (mobileMode) touchShooting = true;
-});
-fireBtn.addEventListener("touchend", () => {
-  touchShooting = false;
-});
-
-// ===============================
-// プレイヤー
-// ===============================
-const player = {
-  x: canvas.width / 2,
-  y: canvas.height / 2 + 150,
-  angle: 0,
-  speed: 2,
-  size: 30,
-  hp: 50,
-  maxHp: 50,
-  healBonus: 1,
-  bulletSpeed: 6,
-  shootCooldown: 0,
-  shootCooldownBase: 20
+  player.angle += dx*0.01;
+  player.x -= Math.sin(player.angle)*dy*0.05;
+  player.y += Math.cos(player.angle)*dy*0.05;
 };
 
-// ===============================
-// ウェーブ
-// ===============================
-let wave = 1;
+/* ============================
+   プレイヤー
+============================ */
+const player = {
+  x: canvas.width/2,
+  y: canvas.height/2+150,
+  angle:0,
+  speed:2,
+  size:30,
+  hp:50,
+  maxHp:50,
+  healBonus:1,
+  bulletSpeed:6,
+  shootCooldown:0,
+  shootCooldownBase:20
+};
 
-// ===============================
-// 能力表示
-// ===============================
+/* ============================
+   ゲーム要素
+============================ */
+let wave = 1;
 let abilityText = "";
 let abilityTimer = 0;
 
-// ===============================
-// 爆発
-// ===============================
 const explosions = [];
-
-// ===============================
-// ミサイル能力（1回だけ）
-// ===============================
 let missileUnlocked = false;
 let missileGiven = false;
 let missileCooldown = 0;
 const missiles = [];
 
-// ===============================
-// 敵
-// ===============================
 const enemies = [];
+const bullets = [];
+const enemyBullets = [];
 
-function spawnEnemies() {
+function spawnEnemies(){
   enemies.length = 0;
-  const count = 5 + (wave - 1) * 2;
-
-  for (let i = 0; i < count; i++) {
+  const count = 5 + (wave-1)*2;
+  for(let i=0;i<count;i++){
     enemies.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height / 2,
-      angle: Math.random() * Math.PI * 2,
-      speed: 1.2,
-      size: 25,
-      hp: 3 + wave,
-      shootCooldown: 0
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height/2,
+      angle:Math.random()*Math.PI*2,
+      speed:1.2,
+      size:25,
+      hp:3+wave,
+      shootCooldown:0
     });
   }
 }
-
 spawnEnemies();
 
 let respawnTimer = 0;
 
-// ===============================
-// 砲弾
-// ===============================
-const bullets = [];
-const enemyBullets = [];
-
-function shoot() {
+/* ============================
+   射撃
+============================ */
+function shoot(){
   bullets.push({
-    x: player.x,
-    y: player.y,
-    angle: player.angle,
-    speed: player.bulletSpeed
+    x:player.x,
+    y:player.y,
+    angle:player.angle,
+    speed:player.bulletSpeed
   });
 }
 
-// ===============================
-// ミサイル
-// ===============================
-function launchMissile() {
-  if (enemies.length === 0) return;
-
+/* ============================
+   ミサイル
+============================ */
+function launchMissile(){
+  if(enemies.length===0) return;
   let target = enemies[0];
-  let minDist = Infinity;
-
-  enemies.forEach(e => {
-    const d = Math.hypot(e.x - player.x, e.y - player.y);
-    if (d < minDist) {
-      minDist = d;
-      target = e;
-    }
+  let min = Infinity;
+  enemies.forEach(e=>{
+    const d = Math.hypot(e.x-player.x, e.y-player.y);
+    if(d<min){ min=d; target=e; }
   });
-
-  missiles.push({
-    x: player.x,
-    y: player.y,
-    target: target,
-    speed: 5
-  });
+  missiles.push({ x:player.x, y:player.y, target, speed:5 });
 }
 
-// ===============================
-// 能力
-// ===============================
+/* ============================
+   能力
+============================ */
 let enemyShootCooldownBase = 180;
 
-function giveRandomAbility() {
+function giveRandomAbility(){
   const abilities = [
-    "攻撃速度アップ",
-    "移動速度アップ",
-    "最大HPアップ",
-    "回復量アップ",
+    "攻撃速度アップ","移動速度アップ",
+    "最大HPアップ","回復量アップ",
     "砲弾速度アップ"
   ];
+  const choice = abilities[Math.floor(Math.random()*abilities.length)];
+  abilityText = "能力獲得: "+choice;
+  abilityTimer = Date.now()+3000;
 
-  const choice = abilities[Math.floor(Math.random() * abilities.length)];
-  abilityText = "能力獲得: " + choice;
-  abilityTimer = Date.now() + 3000;
-
-  switch (choice) {
-    case "攻撃速度アップ":
-      enemyShootCooldownBase = Math.max(60, enemyShootCooldownBase - 20);
-      player.shootCooldownBase = Math.max(5, player.shootCooldownBase - 3);
-      break;
-
-    case "移動速度アップ":
-      player.speed += 0.5;
-      break;
-
-    case "最大HPアップ":
-      player.maxHp += 10;
-      player.hp += 10;
-      break;
-
-    case "回復量アップ":
-      player.healBonus += 1;
-      break;
-
-    case "砲弾速度アップ":
-      player.bulletSpeed += 1;
-      break;
+  if(choice==="攻撃速度アップ"){
+    enemyShootCooldownBase = Math.max(60, enemyShootCooldownBase-20);
+    player.shootCooldownBase = Math.max(5, player.shootCooldownBase-3);
   }
+  if(choice==="移動速度アップ") player.speed+=0.5;
+  if(choice==="最大HPアップ"){ player.maxHp+=10; player.hp+=10; }
+  if(choice==="回復量アップ") player.healBonus+=1;
+  if(choice==="砲弾速度アップ") player.bulletSpeed+=1;
 
-  // ミサイル能力は一度だけ付与
-  if (!missileGiven) {
+  if(!missileGiven){
     missileUnlocked = true;
     missileGiven = true;
     abilityText = "能力獲得: ミサイル";
-    abilityTimer = Date.now() + 3000;
+    abilityTimer = Date.now()+3000;
   }
 }
 
-// ===============================
-// update
-// ===============================
-function update() {
-  if (player.hp <= 0) return;
+/* ============================
+   update
+============================ */
+function update(){
+  if(player.hp<=0) return;
 
-  // PC移動
-  if (!mobileMode) {
-    if (keys["w"]) {
-      player.x += Math.sin(player.angle) * player.speed;
-      player.y -= Math.cos(player.angle) * player.speed;
-    }
-    if (keys["s"]) {
-      player.x -= Math.sin(player.angle) * player.speed;
-      player.y += Math.cos(player.angle) * player.speed;
-    }
-    if (keys["a"]) player.angle -= 0.05;
-    if (keys["d"]) player.angle += 0.05;
+  /* PC移動 */
+  if(!mobileMode){
+    if(keys["w"]){ player.x+=Math.sin(player.angle)*player.speed; player.y-=Math.cos(player.angle)*player.speed; }
+    if(keys["s"]){ player.x-=Math.sin(player.angle)*player.speed; player.y+=Math.cos(player.angle)*player.speed; }
+    if(keys["a"]) player.angle-=0.05;
+    if(keys["d"]) player.angle+=0.05;
   }
 
-  // 射撃（PC + スマホ）
-  if ((mouseDown || touchShooting) && player.shootCooldown <= 0) {
+  /* 射撃 */
+  if((mouseDown||touchShoot)&&player.shootCooldown<=0){
     shoot();
     player.shootCooldown = player.shootCooldownBase;
   }
   player.shootCooldown--;
 
-  // ミサイル自動発射
-  if (missileUnlocked && missileCooldown <= 0) {
+  /* ミサイル */
+  if(missileUnlocked && missileCooldown<=0){
     launchMissile();
     missileCooldown = 180;
   }
   missileCooldown--;
 
-  // ミサイル更新
-  missiles.forEach(m => {
-    if (!m.target) return;
-
+  /* ミサイル移動 */
+  missiles.forEach(m=>{
+    if(!m.target) return;
     const dx = m.target.x - m.x;
     const dy = m.target.y - m.y;
-    const angle = Math.atan2(dx, -dy);
-
-    m.x += Math.sin(angle) * m.speed;
-    m.y -= Math.cos(angle) * m.speed;
-
-    const dist = Math.hypot(m.x - m.target.x, m.y - m.target.y);
-    if (dist < m.target.size) {
+    const ang = Math.atan2(dx,-dy);
+    m.x += Math.sin(ang)*m.speed;
+    m.y -= Math.cos(ang)*m.speed;
+    if(Math.hypot(m.x-m.target.x, m.y-m.target.y) < m.target.size){
       m.target.hp = 0;
-
-      explosions.push({
-        x: m.target.x,
-        y: m.target.y,
-        radius: 5,
-        alpha: 1
-      });
-
+      explosions.push({ x:m.target.x, y:m.target.y, radius:5, alpha:1 });
       m.x = -9999;
     }
   });
 
-  // プレイヤー砲弾
-  bullets.forEach(b => {
-    b.x += Math.sin(b.angle) * b.speed;
-    b.y -= Math.cos(b.angle) * b.speed;
+  /* プレイヤー砲弾 */
+  bullets.forEach(b=>{
+    b.x += Math.sin(b.angle)*b.speed;
+    b.y -= Math.cos(b.angle)*b.speed;
   });
 
-  // 敵AI
-  enemies.forEach(e => {
+  /* 敵AI */
+  enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
-    const dist = Math.hypot(dx, dy);
+    const dist = Math.hypot(dx,dy);
+    e.angle = Math.atan2(dx,-dy);
 
-    e.angle = Math.atan2(dx, -dy);
-
-    if (dist > 200) {
-      e.x += Math.sin(e.angle) * e.speed;
-      e.y -= Math.cos(e.angle) * e.speed;
+    if(dist>200){
+      e.x += Math.sin(e.angle)*e.speed;
+      e.y -= Math.cos(e.angle)*e.speed;
     }
 
-    if (dist < 400) {
-      if (e.shootCooldown <= 0) {
-        enemyBullets.push({
-          x: e.x,
-          y: e.y,
-          angle: e.angle,
-          speed: 4
-        });
-        e.shootCooldown = enemyShootCooldownBase;
-      }
+    if(dist<400 && e.shootCooldown<=0){
+      enemyBullets.push({
+        x:e.x, y:e.y, angle:e.angle, speed:4
+      });
+      e.shootCooldown = enemyShootCooldownBase;
     }
-
     e.shootCooldown--;
   });
 
-  // 敵砲弾
-  enemyBullets.forEach(b => {
-    b.x += Math.sin(b.angle) * b.speed;
-    b.y -= Math.cos(b.angle) * b.speed;
-  });
-
-  // 敵砲弾命中
-  enemyBullets.forEach(b => {
-    const dist = Math.hypot(b.x - player.x, b.y - player.y);
-    if (dist < player.size) {
+  /* 敵砲弾 */
+  enemyBullets.forEach(b=>{
+    b.x += Math.sin(b.angle)*b.speed;
+    b.y -= Math.cos(b.angle)*b.speed;
+    if(Math.hypot(b.x-player.x, b.y-player.y)<player.size){
       player.hp--;
       b.x = -9999;
     }
   });
 
-  // プレイヤー砲弾命中
-  bullets.forEach(b => {
-    enemies.forEach(e => {
-      const dist = Math.hypot(b.x - e.x, b.y - e.y);
-      if (dist < e.size) {
+  /* プレイヤー砲弾命中 */
+  bullets.forEach(b=>{
+    enemies.forEach(e=>{
+      if(Math.hypot(b.x-e.x, b.y-e.y)<e.size){
         e.hp--;
-        b.x = -9999;
-
-        if (e.hp <= 1) {
-          player.hp = Math.min(player.maxHp, player.hp + player.healBonus);
-
-          explosions.push({
-            x: e.x,
-            y: e.y,
-            radius: 5,
-            alpha: 1
-          });
+        b.x=-9999;
+        if(e.hp<=1){
+          player.hp = Math.min(player.maxHp, player.hp+player.healBonus);
+          explosions.push({ x:e.x, y:e.y, radius:5, alpha:1 });
         }
       }
     });
   });
 
-  // 敵削除
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    if (enemies[i].hp <= 0) enemies.splice(i, 1);
+  /* 敵削除 */
+  for(let i=enemies.length-1;i>=0;i--){
+    if(enemies[i].hp<=0) enemies.splice(i,1);
   }
 
-  // 爆発更新
-  explosions.forEach(ex => {
-    ex.radius += 2;
-    ex.alpha -= 0.05;
+  /* 爆発 */
+  explosions.forEach(ex=>{
+    ex.radius+=2;
+    ex.alpha-=0.05;
   });
-
-  for (let i = explosions.length - 1; i--) {
-    if (explosions[i].alpha <= 0) explosions.splice(i, 1);
+  for(let i=explosions.length-1;i>=0;i--){
+    if(explosions[i].alpha<=0) explosions.splice(i,1);
   }
 }
 
-// ===============================
-// respawn
-// ===============================
-function checkRespawn() {
-  if (player.hp <= 0) return;
-
-  if (enemies.length === 0 && respawnTimer === 0) {
-    respawnTimer = Date.now() + 5000;
+/* ============================
+   respawn
+============================ */
+function checkRespawn(){
+  if(player.hp<=0) return;
+  if(enemies.length===0 && respawnTimer===0){
+    respawnTimer = Date.now()+5000;
     wave++;
     giveRandomAbility();
   }
-
-  if (respawnTimer !== 0 && Date.now() > respawnTimer) {
+  if(respawnTimer!==0 && Date.now()>respawnTimer){
     spawnEnemies();
-    respawnTimer = 0;
+    respawnTimer=0;
   }
 }
 
-// ===============================
-// draw
-// ===============================
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+/* ============================
+   draw
+============================ */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle = "#0a1a33";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  /* 背景 */
+  ctx.fillStyle="#002";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // プレイヤー
+  /* プレイヤー */
   ctx.save();
-  ctx.translate(player.x, player.y);
+  ctx.translate(player.x,player.y);
   ctx.rotate(player.angle);
-
-  ctx.fillStyle = "#4af";
-  ctx.fillRect(-player.size/2, -player.size, player.size, player.size * 1.8);
-
+  ctx.fillStyle="#4af";
+  ctx.fillRect(-player.size/2,-player.size,player.size,player.size*1.8);
   ctx.beginPath();
-  ctx.moveTo(-player.size/2, -player.size);
-  ctx.lineTo(player.size/2, -player.size);
-  ctx.lineTo(0, -player.size * 1.8);
+  ctx.moveTo(-player.size/2,-player.size);
+  ctx.lineTo(player.size/2,-player.size);
+  ctx.lineTo(0,-player.size*1.8);
   ctx.closePath();
   ctx.fill();
-
   ctx.restore();
 
-  // 敵
-  enemies.forEach(e => {
+  /* 敵 */
+  enemies.forEach(e=>{
     ctx.save();
-    ctx.translate(e.x, e.y);
+    ctx.translate(e.x,e.y);
     ctx.rotate(e.angle);
-
-    ctx.fillStyle = "#f44";
-    ctx.fillRect(-e.size/2, -e.size, e.size, e.size * 1.6);
-
+    ctx.fillStyle="#f44";
+    ctx.fillRect(-e.size/2,-e.size,e.size,e.size*1.6);
     ctx.beginPath();
-    ctx.moveTo(-e.size/2, -e.size);
-    ctx.lineTo(e.size/2, -e.size);
-    ctx.lineTo(0, -e.size * 1.6);
+    ctx.moveTo(-e.size/2,-e.size);
+    ctx.lineTo(e.size/2,-e.size);
+    ctx.lineTo(0,-e.size*1.6);
     ctx.closePath();
     ctx.fill();
-
     ctx.restore();
   });
 
-  // 砲弾
-  ctx.fillStyle = "#ff0";
-  bullets.forEach(b => {
+  /* 砲弾 */
+  ctx.fillStyle="#ff0";
+  bullets.forEach(b=>{
     ctx.beginPath();
-    ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+    ctx.arc(b.x,b.y,5,0,Math.PI*2);
     ctx.fill();
   });
 
-  // 敵砲弾
-  ctx.fillStyle = "#0ff";
-  enemyBullets.forEach(b => {
+  /* 敵砲弾 */
+  ctx.fillStyle="#0ff";
+  enemyBullets.forEach(b=>{
     ctx.beginPath();
-    ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+    ctx.arc(b.x,b.y,5,0,Math.PI*2);
     ctx.fill();
   });
 
-  // ミサイル（UI改善版）
-  missiles.forEach(m => {
-    if (!m.target) return;
+  /* ミサイル */
+  missiles.forEach(m=>{
+    if(!m.target) return;
+    const dx=m.target.x-m.x, dy=m.target.y-m.y;
+    const ang=Math.atan2(dx,-dy);
 
-    const dx = m.target.x - m.x;
-    const dy = m.target.y - m.y;
-    const angle = Math.atan2(dx, -dy);
-
-    // ミサイル本体（赤い三角形）
     ctx.save();
-    ctx.translate(m.x, m.y);
-    ctx.rotate(angle);
-
-    ctx.fillStyle = "#ff4444";
+    ctx.translate(m.x,m.y);
+    ctx.rotate(ang);
+    ctx.fillStyle="#ff4444";
     ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.lineTo(6, 6);
-    ctx.lineTo(-6, 6);
+    ctx.moveTo(0,-10);
+    ctx.lineTo(6,6);
+    ctx.lineTo(-6,6);
     ctx.closePath();
     ctx.fill();
-
     ctx.restore();
 
-    // 尾（煙）
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillStyle="rgba(255,255,255,0.5)";
     ctx.beginPath();
-    ctx.arc(m.x, m.y + 10, 4, 0, Math.PI * 2);
+    ctx.arc(m.x,m.y+10,4,0,Math.PI*2);
     ctx.fill();
   });
 
-  // 爆発
-  explosions.forEach(ex => {
+  /* 爆発 */
+  explosions.forEach(ex=>{
     ctx.beginPath();
-    ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2
+    ctx.arc(ex.x,ex.y,ex.radius,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,150,0,${ex.alpha})`;
+    ctx.fill();
+  });
+
+  /* UI */
+  ctx.fillStyle="#fff";
+  ctx.font="24px Arial";
+  ctx.fillText("HP: "+player.hp+" / "+player.maxHp,20,40);
+  ctx.fillText("Wave: "+wave,20,70);
+
+  if(abilityTimer>Date.now()){
+    ctx.fillStyle="#0f0";
+    ctx.font="32px Arial";
+    ctx.fillText(abilityText,canvas.width/2-150,80);
+  }
+
+  if(player.hp<=0){
+    ctx.fillStyle="#f00";
+    ctx.font="60px Arial";
+    ctx.fillText("GAME OVER",canvas.width/2-150,canvas.height/2);
+  }
+}
+
+/* ============================
+   main loop
+============================ */
+function loop(){
+  update();
+  checkRespawn();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
