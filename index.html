@@ -34,7 +34,7 @@
     color:white;
   }
 
-  /* モード切替ボタン（ゲーム開始後に表示） */
+  /* モード切替ボタン */
   #modeSwitch {
     position:fixed; top:10px; right:10px; z-index:9999;
     display:none;
@@ -43,7 +43,7 @@
     font-size:18px; padding:8px 16px; margin-left:6px;
   }
 
-  /* スマホUI（初期は非表示） */
+  /* スマホUI */
   #joystick, #fireBtn { display:none; }
 
   #joystick {
@@ -138,7 +138,7 @@ window.onmousedown = ()=> mouseDown = true;
 window.onmouseup = ()=> mouseDown = false;
 
 /* ============================
-   スマホUI（回転暴走修正済み）
+   スマホUI（安定操作版）
 ============================ */
 const joy = document.getElementById("joystick");
 const joyInner = document.getElementById("joystick-inner");
@@ -166,16 +166,17 @@ joy.ontouchmove = e=>{
     dy = dy/dist * maxDist;
   }
 
-  if (Math.abs(dx) < 5) dx = 0;
-  if (Math.abs(dy) < 5) dy = 0;
-
   joyInner.style.left = (40 + dx) + "px";
   joyInner.style.top  = (40 + dy) + "px";
 
-  const turn = dx / maxDist;
-  player.angle += turn * 0.05;
+  /* ★ 方向ベクトルから角度を決める（勝手に回らない） */
+  if(dist > 5){
+    player.angle = Math.atan2(dx, -dy);
+  }
 
-  const forward = -dy / maxDist;
+  /* ★ 距離に応じて前進・後退（勝手に進まない） */
+  const forward = dist > 5 ? dist / maxDist : 0;
+
   player.x += Math.sin(player.angle) * forward * player.speed;
   player.y -= Math.cos(player.angle) * forward * player.speed;
 };
@@ -183,6 +184,7 @@ joy.ontouchmove = e=>{
 joy.ontouchend = ()=>{
   joyInner.style.left="40px";
   joyInner.style.top="40px";
+  // 完全停止（角度・移動ともに0）
 };
 
 /* ============================
@@ -297,30 +299,41 @@ function giveRandomAbility(){
 }
 
 /* ============================
-   update
+   update（PCも安定操作）
 ============================ */
 function update(){
   if(player.hp<=0) return;
 
+  /* PC操作（押してる時だけ動く） */
   if(!mobileMode){
-    if(keys["w"]){ player.x+=Math.sin(player.angle)*player.speed; player.y-=Math.cos(player.angle)*player.speed; }
-    if(keys["s"]){ player.x-=Math.sin(player.angle)*player.speed; player.y+=Math.cos(player.angle)*player.speed; }
-    if(keys["a"]) player.angle-=0.05;
-    if(keys["d"]) player.angle+=0.05;
+    if(keys["a"]) player.angle -= 0.05;
+    if(keys["d"]) player.angle += 0.05;
+
+    if(keys["w"]){
+      player.x += Math.sin(player.angle) * player.speed;
+      player.y -= Math.cos(player.angle) * player.speed;
+    }
+    if(keys["s"]){
+      player.x -= Math.sin(player.angle) * player.speed;
+      player.y += Math.cos(player.angle) * player.speed;
+    }
   }
 
+  /* 射撃 */
   if((mouseDown||touchShoot)&&player.shootCooldown<=0){
     shoot();
     player.shootCooldown = player.shootCooldownBase;
   }
   player.shootCooldown--;
 
+  /* ミサイル */
   if(missileUnlocked && missileCooldown<=0){
     launchMissile();
     missileCooldown = 180;
   }
   missileCooldown--;
 
+  /* ミサイル移動 */
   missiles.forEach(m=>{
     if(!m.target) return;
     const dx = m.target.x - m.x;
@@ -335,11 +348,13 @@ function update(){
     }
   });
 
+  /* プレイヤー砲弾 */
   bullets.forEach(b=>{
     b.x += Math.sin(b.angle)*b.speed;
     b.y -= Math.cos(b.angle)*b.speed;
   });
 
+  /* 敵AI */
   enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
@@ -360,6 +375,7 @@ function update(){
     e.shootCooldown--;
   });
 
+  /* 敵砲弾 */
   enemyBullets.forEach(b=>{
     b.x += Math.sin(b.angle)*b.speed;
     b.y -= Math.cos(b.angle)*b.speed;
@@ -369,6 +385,7 @@ function update(){
     }
   });
 
+  /* プレイヤー砲弾命中 */
   bullets.forEach(b=>{
     enemies.forEach(e=>{
       if(Math.hypot(b.x-e.x, b.y-e.y)<e.size){
@@ -382,10 +399,12 @@ function update(){
     });
   });
 
+  /* 敵削除 */
   for(let i=enemies.length-1;i>=0;i--){
     if(enemies[i].hp<=0) enemies.splice(i,1);
   }
 
+  /* 爆発 */
   explosions.forEach(ex=>{
     ex.radius+=2;
     ex.alpha-=0.05;
