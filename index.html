@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Sea Battle Mobile UI</title>
+<title>Sea Battle Mode Switch</title>
 <style>
   body { margin: 0; overflow: hidden; background: #003; }
   #gameCanvas {
@@ -13,59 +13,101 @@
     touch-action: none;
   }
 
-  /* スマホ専用UI */
-  @media (pointer: coarse) {
-    #joystick {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      width: 140px;
-      height: 140px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 50%;
-      border: 2px solid #fff;
-      touch-action: none;
-      display: block;
-    }
-    #joystick-inner {
-      position: absolute;
-      width: 60px;
-      height: 60px;
-      background: rgba(255,255,255,0.4);
-      border-radius: 50%;
-      left: 40px;
-      top: 40px;
-    }
-
-    #fireBtn {
-      position: fixed;
-      bottom: 40px;
-      right: 40px;
-      width: 120px;
-      height: 120px;
-      background: rgba(255,0,0,0.4);
-      border-radius: 50%;
-      border: 2px solid #fff;
-      touch-action: none;
-      display: block;
-    }
+  /* モード切り替えボタン */
+  #modeSwitch {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 9999;
+  }
+  #modeSwitch button {
+    font-size: 20px;
+    padding: 10px 20px;
+    margin-left: 10px;
   }
 
-  /* PCでは非表示 */
+  /* スマホUI（初期は非表示） */
   #joystick, #fireBtn {
     display: none;
+  }
+
+  /* スマホUIデザイン */
+  #joystick {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 140px;
+    height: 140px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    touch-action: none;
+    z-index: 9998;
+  }
+  #joystick-inner {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    left: 40px;
+    top: 40px;
+  }
+
+  #fireBtn {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255,0,0,0.4);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    touch-action: none;
+    z-index: 9998;
   }
 </style>
 </head>
 <body>
 
+<!-- モード切り替え -->
+<div id="modeSwitch">
+  <button id="pcModeBtn">PCモード</button>
+  <button id="mobileModeBtn">スマホモード</button>
+</div>
+
 <canvas id="gameCanvas" tabindex="0"></canvas>
 
-<!-- スマホ専用UI -->
+<!-- スマホUI -->
 <div id="joystick"><div id="joystick-inner"></div></div>
 <div id="fireBtn"></div>
 
 <script>
+// ===============================
+// モード切り替え
+// ===============================
+let mobileMode = false;
+
+function updateUIMode() {
+  if (mobileMode) {
+    document.getElementById("joystick").style.display = "block";
+    document.getElementById("fireBtn").style.display = "block";
+  } else {
+    document.getElementById("joystick").style.display = "none";
+    document.getElementById("fireBtn").style.display = "none";
+  }
+}
+
+document.getElementById("pcModeBtn").addEventListener("click", () => {
+  mobileMode = false;
+  updateUIMode();
+});
+
+document.getElementById("mobileModeBtn").addEventListener("click", () => {
+  mobileMode = true;
+  updateUIMode();
+});
+
 // ===============================
 // 基本設定
 // ===============================
@@ -73,9 +115,9 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
-canvas.focus(); // ← WASDが確実に効くようにする
+canvas.focus();
 
-// PCキー操作（window に変更）
+// PCキー操作
 let keys = {};
 window.addEventListener("keydown", e => keys[e.key] = true);
 window.addEventListener("keyup", e => keys[e.key] = false);
@@ -90,23 +132,22 @@ window.addEventListener("mouseup", () => mouseDown = false);
 // ===============================
 const joy = document.getElementById("joystick");
 const joyInner = document.getElementById("joystick-inner");
-let joyActive = false;
 let joyX = 0, joyY = 0;
 
 joy.addEventListener("touchstart", e => {
-  joyActive = true;
   const t = e.touches[0];
   joyX = t.clientX;
   joyY = t.clientY;
 });
 
 joy.addEventListener("touchend", () => {
-  joyActive = false;
   joyInner.style.left = "40px";
   joyInner.style.top = "40px";
 });
 
 joy.addEventListener("touchmove", e => {
+  if (!mobileMode) return;
+
   const t = e.touches[0];
   const rect = joy.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
@@ -126,7 +167,6 @@ joy.addEventListener("touchmove", e => {
   joyInner.style.left = (40 + dx) + "px";
   joyInner.style.top = (40 + dy) + "px";
 
-  // プレイヤー操作
   player.angle += dx * 0.01;
   player.x -= Math.sin(player.angle) * dy * 0.05;
   player.y += Math.cos(player.angle) * dy * 0.05;
@@ -139,7 +179,7 @@ let touchShooting = false;
 const fireBtn = document.getElementById("fireBtn");
 
 fireBtn.addEventListener("touchstart", () => {
-  touchShooting = true;
+  if (mobileMode) touchShooting = true;
 });
 fireBtn.addEventListener("touchend", () => {
   touchShooting = false;
@@ -310,16 +350,18 @@ function update() {
   if (player.hp <= 0) return;
 
   // PC移動
-  if (keys["w"]) {
-    player.x += Math.sin(player.angle) * player.speed;
-    player.y -= Math.cos(player.angle) * player.speed;
+  if (!mobileMode) {
+    if (keys["w"]) {
+      player.x += Math.sin(player.angle) * player.speed;
+      player.y -= Math.cos(player.angle) * player.speed;
+    }
+    if (keys["s"]) {
+      player.x -= Math.sin(player.angle) * player.speed;
+      player.y += Math.cos(player.angle) * player.speed;
+    }
+    if (keys["a"]) player.angle -= 0.05;
+    if (keys["d"]) player.angle += 0.05;
   }
-  if (keys["s"]) {
-    player.x -= Math.sin(player.angle) * player.speed;
-    player.y += Math.cos(player.angle) * player.speed;
-  }
-  if (keys["a"]) player.angle -= 0.05;
-  if (keys["d"]) player.angle += 0.05;
 
   // 射撃（PC + スマホ）
   if ((mouseDown || touchShooting) && player.shootCooldown <= 0) {
@@ -555,41 +597,3 @@ function draw() {
     ctx.beginPath();
     ctx.arc(m.x, m.y + 10, 4, 0, Math.PI * 2);
     ctx.fill();
-  });
-
-  // 爆発
-  explosions.forEach(ex => {
-    ctx.beginPath();
-    ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,150,0,${ex.alpha})`;
-    ctx.fill();
-  });
-
-  // UI
-  ctx.fillStyle = "#fff";
-  ctx.font = "24px Arial";
-  ctx.fillText("HP: " + player.hp + " / " + player.maxHp, 20, 40);
-  ctx.fillText("Wave: " + wave, 20, 70);
-
-  if (abilityTimer > Date.now()) {
-    ctx.fillStyle = "#0f0";
-    ctx.font = "32px Arial";
-    ctx.fillText(abilityText, canvas.width / 2 - 150, 80);
-  }
-
-  if (player.hp <= 0) {
-    ctx.fillStyle = "#f00";
-    ctx.font = "60px Arial";
-    ctx.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
-
-    ctx.font = "40px Arial";
-    ctx.fillText("Wave " + wave + " まで生き残った", canvas.width / 2 - 200, canvas.height / 2 + 60);
-  }
-}
-
-// ===============================
-// main loop
-// ===============================
-function loop() {
-  update();
-  checkResp
