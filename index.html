@@ -102,7 +102,7 @@ let touchShoot = false;
 fireBtn.ontouchstart = ()=>{ if(mobileMode) touchShoot = true; };
 fireBtn.ontouchend   = ()=> touchShoot = false;
 
-/* ◎が動かない問題の修正版 */
+/* ◎が動かない問題の完全修正版 */
 joy.ontouchmove = e=>{
   if (document.getElementById("joystick").style.display !== "block") return;
 
@@ -122,12 +122,21 @@ joy.ontouchmove = e=>{
     dy = dy/dist * maxDist;
   }
 
+  /* デッドゾーン（指のブレ吸収） */
+  if (Math.abs(dx) < 5) dx = 0;
+  if (Math.abs(dy) < 5) dy = 0;
+
+  /* UIの丸を動かす */
   joyInner.style.left = (40 + dx) + "px";
   joyInner.style.top  = (40 + dy) + "px";
 
-  player.angle += dx * 0.01;
-  player.x -= Math.sin(player.angle) * dy * 0.05;
-  player.y += Math.cos(player.angle) * dy * 0.05;
+  /* 回転（弱くして暴れない） */
+  player.angle += dx * 0.005;
+
+  /* 前進・後退（滑らかに） */
+  const forward = -dy / 50; // -1 ～ 1
+  player.x += Math.sin(player.angle) * forward * player.speed;
+  player.y -= Math.cos(player.angle) * forward * player.speed;
 };
 
 joy.ontouchend = ()=>{
