@@ -15,7 +15,7 @@
     font-size:18px; padding:8px 16px; margin-left:6px;
   }
 
-  /* スマホUI */
+  /* スマホUI（初期は非表示） */
   #joystick, #fireBtn { display:none; }
 
   #joystick {
@@ -57,12 +57,19 @@
    モード切替
 ============================ */
 let mobileMode = false;
+
 function updateUIMode(){
   const j = document.getElementById("joystick");
   const f = document.getElementById("fireBtn");
-  if(mobileMode){ j.style.display="block"; f.style.display="block"; }
-  else{ j.style.display="none"; f.style.display="none"; }
+  if(mobileMode){
+    j.style.display="block";
+    f.style.display="block";
+  } else {
+    j.style.display="none";
+    f.style.display="none";
+  }
 }
+
 pcModeBtn.onclick = ()=>{ mobileMode=false; updateUIMode(); };
 mobileModeBtn.onclick = ()=>{ mobileMode=true; updateUIMode(); };
 
@@ -95,31 +102,37 @@ let touchShoot = false;
 fireBtn.ontouchstart = ()=>{ if(mobileMode) touchShoot = true; };
 fireBtn.ontouchend   = ()=> touchShoot = false;
 
-joy.ontouchstart = e=>{
+/* ◎が動かない問題の修正版 */
+joy.ontouchmove = e=>{
+  if (document.getElementById("joystick").style.display !== "block") return;
+
   const t = e.touches[0];
-  joyX = t.clientX; joyY = t.clientY;
+  const rect = joy.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+
+  let dx = t.clientX - cx;
+  let dy = t.clientY - cy;
+
+  const dist = Math.hypot(dx, dy);
+  const maxDist = 50;
+
+  if(dist > maxDist){
+    dx = dx/dist * maxDist;
+    dy = dy/dist * maxDist;
+  }
+
+  joyInner.style.left = (40 + dx) + "px";
+  joyInner.style.top  = (40 + dy) + "px";
+
+  player.angle += dx * 0.01;
+  player.x -= Math.sin(player.angle) * dy * 0.05;
+  player.y += Math.cos(player.angle) * dy * 0.05;
 };
+
 joy.ontouchend = ()=>{
   joyInner.style.left="40px";
   joyInner.style.top="40px";
-};
-joy.ontouchmove = e=>{
-  if(!mobileMode) return;
-  const t = e.touches[0];
-  const r = joy.getBoundingClientRect();
-  const cx = r.left + r.width/2;
-  const cy = r.top + r.height/2;
-  let dx = t.clientX - cx;
-  let dy = t.clientY - cy;
-  const dist = Math.hypot(dx,dy);
-  const max = 50;
-  if(dist>max){ dx = dx/dist*max; dy = dy/dist*max; }
-  joyInner.style.left = (40+dx)+"px";
-  joyInner.style.top  = (40+dy)+"px";
-
-  player.angle += dx*0.01;
-  player.x -= Math.sin(player.angle)*dy*0.05;
-  player.y += Math.cos(player.angle)*dy*0.05;
 };
 
 /* ============================
@@ -364,7 +377,6 @@ function checkRespawn(){
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  /* 背景 */
   ctx.fillStyle="#002";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
