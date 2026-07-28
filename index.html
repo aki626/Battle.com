@@ -2,14 +2,42 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Sea Battle 改</title>
+<title>Sea Battle</title>
 <style>
   body { margin:0; overflow:hidden; background:#003; }
-  #gameCanvas { width:100vw; height:100vh; display:block; background:#002; }
+  #gameCanvas { width:100vw; height:100vh; display:none; background:#002; }
 
-  /* モード切替ボタン */
+  /* タイトル画面 */
+  #titleScreen {
+    position:fixed;
+    top:0; left:0;
+    width:100vw; height:100vh;
+    background:#001a33;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    font-family:Arial;
+    z-index:99999;
+  }
+  #titleScreen h1 {
+    font-size:64px;
+    margin-bottom:40px;
+  }
+  #startBtn {
+    font-size:32px;
+    padding:20px 40px;
+    background:#0af;
+    border:none;
+    border-radius:10px;
+    color:white;
+  }
+
+  /* モード切替ボタン（ゲーム開始後に表示） */
   #modeSwitch {
     position:fixed; top:10px; right:10px; z-index:9999;
+    display:none;
   }
   #modeSwitch button {
     font-size:18px; padding:8px 16px; margin-left:6px;
@@ -42,6 +70,13 @@
 </head>
 <body>
 
+<!-- タイトル画面 -->
+<div id="titleScreen">
+  <h1>SEA BATTLE</h1>
+  <button id="startBtn">START</button>
+</div>
+
+<!-- モード切替 -->
 <div id="modeSwitch">
   <button id="pcModeBtn">PCモード</button>
   <button id="mobileModeBtn">スマホモード</button>
@@ -49,10 +84,20 @@
 
 <canvas id="gameCanvas" tabindex="0"></canvas>
 
+<!-- スマホUI -->
 <div id="joystick"><div id="joystick-inner"></div></div>
 <div id="fireBtn"></div>
 
 <script>
+/* ============================
+   タイトル → ゲーム開始
+============================ */
+startBtn.onclick = ()=>{
+  titleScreen.style.display = "none";
+  gameCanvas.style.display = "block";
+  modeSwitch.style.display = "block";
+};
+
 /* ============================
    モード切替
 ============================ */
@@ -93,7 +138,7 @@ window.onmousedown = ()=> mouseDown = true;
 window.onmouseup = ()=> mouseDown = false;
 
 /* ============================
-   スマホUI
+   スマホUI（回転暴走修正済み）
 ============================ */
 const joy = document.getElementById("joystick");
 const joyInner = document.getElementById("joystick-inner");
@@ -102,7 +147,6 @@ let touchShoot = false;
 fireBtn.ontouchstart = ()=>{ if(mobileMode) touchShoot = true; };
 fireBtn.ontouchend   = ()=> touchShoot = false;
 
-/* ★ 回転暴走バグ完全修正版ジョイスティック */
 joy.ontouchmove = e=>{
   if (document.getElementById("joystick").style.display !== "block") return;
 
@@ -122,20 +166,16 @@ joy.ontouchmove = e=>{
     dy = dy/dist * maxDist;
   }
 
-  /* デッドゾーン（指のブレ吸収） */
   if (Math.abs(dx) < 5) dx = 0;
   if (Math.abs(dy) < 5) dy = 0;
 
-  /* UIの丸を動かす */
   joyInner.style.left = (40 + dx) + "px";
   joyInner.style.top  = (40 + dy) + "px";
 
-  /* ★ 回転は割合で決める → 離したら必ず止まる */
-  const turn = dx / maxDist; // -1 ～ 1
+  const turn = dx / maxDist;
   player.angle += turn * 0.05;
 
-  /* ★ 前進・後退も割合で決める → 離したら止まる */
-  const forward = -dy / maxDist; // -1 ～ 1
+  const forward = -dy / maxDist;
   player.x += Math.sin(player.angle) * forward * player.speed;
   player.y -= Math.cos(player.angle) * forward * player.speed;
 };
@@ -262,7 +302,6 @@ function giveRandomAbility(){
 function update(){
   if(player.hp<=0) return;
 
-  /* PC移動（回転暴走防止済み） */
   if(!mobileMode){
     if(keys["w"]){ player.x+=Math.sin(player.angle)*player.speed; player.y-=Math.cos(player.angle)*player.speed; }
     if(keys["s"]){ player.x-=Math.sin(player.angle)*player.speed; player.y+=Math.cos(player.angle)*player.speed; }
@@ -270,21 +309,18 @@ function update(){
     if(keys["d"]) player.angle+=0.05;
   }
 
-  /* 射撃 */
   if((mouseDown||touchShoot)&&player.shootCooldown<=0){
     shoot();
     player.shootCooldown = player.shootCooldownBase;
   }
   player.shootCooldown--;
 
-  /* ミサイル */
   if(missileUnlocked && missileCooldown<=0){
     launchMissile();
     missileCooldown = 180;
   }
   missileCooldown--;
 
-  /* ミサイル移動 */
   missiles.forEach(m=>{
     if(!m.target) return;
     const dx = m.target.x - m.x;
@@ -299,13 +335,11 @@ function update(){
     }
   });
 
-  /* プレイヤー砲弾 */
   bullets.forEach(b=>{
     b.x += Math.sin(b.angle)*b.speed;
     b.y -= Math.cos(b.angle)*b.speed;
   });
 
-  /* 敵AI */
   enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
@@ -326,7 +360,6 @@ function update(){
     e.shootCooldown--;
   });
 
-  /* 敵砲弾 */
   enemyBullets.forEach(b=>{
     b.x += Math.sin(b.angle)*b.speed;
     b.y -= Math.cos(b.angle)*b.speed;
@@ -336,7 +369,6 @@ function update(){
     }
   });
 
-  /* プレイヤー砲弾命中 */
   bullets.forEach(b=>{
     enemies.forEach(e=>{
       if(Math.hypot(b.x-e.x, b.y-e.y)<e.size){
@@ -350,12 +382,10 @@ function update(){
     });
   });
 
-  /* 敵削除 */
   for(let i=enemies.length-1;i>=0;i--){
     if(enemies[i].hp<=0) enemies.splice(i,1);
   }
 
-  /* 爆発 */
   explosions.forEach(ex=>{
     ex.radius+=2;
     ex.alpha-=0.05;
@@ -390,7 +420,6 @@ function draw(){
   ctx.fillStyle="#002";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  /* プレイヤー */
   ctx.save();
   ctx.translate(player.x,player.y);
   ctx.rotate(player.angle);
@@ -404,7 +433,6 @@ function draw(){
   ctx.fill();
   ctx.restore();
 
-  /* 敵 */
   enemies.forEach(e=>{
     ctx.save();
     ctx.translate(e.x,e.y);
@@ -420,7 +448,6 @@ function draw(){
     ctx.restore();
   });
 
-  /* 砲弾 */
   ctx.fillStyle="#ff0";
   bullets.forEach(b=>{
     ctx.beginPath();
@@ -428,7 +455,6 @@ function draw(){
     ctx.fill();
   });
 
-  /* 敵砲弾 */
   ctx.fillStyle="#0ff";
   enemyBullets.forEach(b=>{
     ctx.beginPath();
@@ -436,7 +462,6 @@ function draw(){
     ctx.fill();
   });
 
-  /* ミサイル */
   missiles.forEach(m=>{
     if(!m.target) return;
     const dx=m.target.x-m.x, dy=m.target.y-m.y;
@@ -460,7 +485,6 @@ function draw(){
     ctx.fill();
   });
 
-  /* 爆発 */
   explosions.forEach(ex=>{
     ctx.beginPath();
     ctx.arc(ex.x,ex.y,ex.radius,0,Math.PI*2);
@@ -468,7 +492,6 @@ function draw(){
     ctx.fill();
   });
 
-  /* UI */
   ctx.fillStyle="#fff";
   ctx.font="24px Arial";
   ctx.fillText("HP: "+player.hp+" / "+player.maxHp,20,40);
